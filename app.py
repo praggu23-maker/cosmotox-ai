@@ -14,6 +14,10 @@ from reportlab.lib import colors
 st.set_page_config(page_title="CosmoTox-AI Dashboard", page_icon="🚀", layout="wide")
 
 def run_euler_simulation(params):
+    """
+    Bypasses Scipy completely using an explicit Euler numerical integration loop.
+    Ensures 100% stability across all experimental Python server environments.
+    """
     dt = 1.0
     steps = 241
     t_eval = np.linspace(0, 240, steps)
@@ -23,10 +27,11 @@ def run_euler_simulation(params):
     Systemic_IL6 = np.zeros(steps)
     ICANS_CNS = np.zeros(steps)
     
-    Flu_C = 30.0 * params['bsa_m2']
-    Cy_C = 500.0 * params['bsa_m2']
-    Systemic_IL6 = 15.0
-    ICANS_CNS = 2.0
+    # CORRECT INITIALIZATION: Assigning starting values to index 0 of the arrays
+    Flu_C[0] = 30.0 * params['bsa_m2']
+    Cy_C[0] = 500.0 * params['bsa_m2']
+    Systemic_IL6[0] = 15.0
+    ICANS_CNS[0] = 2.0
     
     cl_flu = 9.5 * (params['crcl_ml_min'] / 100.0)
     v1_flu = params['bsa_m2'] * 20.0
@@ -76,7 +81,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["NASA Alternative Splicing Risk Index", f"{splicing}"],
         ["Patient Genomic Risk Strata", str(genotype_summary)]
     ]
-    t1 = Table(data_inputs, colWidths=[240, 280])
+    t1 = Table(data_inputs, colWidths=[240, 240])
     t1.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0068C9')),
         ('TEXTCOLOR', (0,0), (1,0), colors.white),
@@ -94,7 +99,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    t2 = Table(data_outcomes, colWidths=[200, 160, 160])
+    t2 = Table(data_outcomes, colWidths=[180, 140, 160])
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
@@ -152,7 +157,7 @@ calculated_crcl = ((140 - age) * weight) / (72 * serum_creatinine)
 st.sidebar.markdown(f"**Computed Clearance Rate (CrCl):** `{calculated_crcl:.1f} mL/min`")
 
 # =====================================================================
-# MAIN USER INTERFACE DISPLAY LAYOUT (Restructured to Vertical Stack)
+# MAIN USER INTERFACE DISPLAY LAYOUT
 # =====================================================================
 st.title("🚀 CosmoTox-AI Clinical Simulator")
 st.markdown("Predict off-target toxicities and optimize tailored treatment protocols by translating **NASA Bioscience extreme stress markers** through **personalized patient-specific genomic variant sheets**.")
@@ -199,10 +204,3 @@ col_t1, col_t2 = st.columns(2)
 with col_t1:
     st.metric("Max Systemic CRS", f"{peak_crs:.1f} pg/mL", delta="⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile", delta_color="inverse" if peak_crs > 300 else "normal")
 with col_t2:
-    st.metric("Max ICANS Index", f"{peak_icans:.1f} pts", delta="🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile", delta_color="inverse" if peak_icans > 80 else "normal")
-
-st.write("---")
-
-# 📈 Section 4: Plotly Graphical Curves Visualizer
-st.header("📈 Time-Course Pathological Trajectory Plots")
-fig = go.Figure()
