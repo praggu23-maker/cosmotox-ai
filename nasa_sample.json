@@ -1,0 +1,7 @@
+{
+  "source_study": "NASA-OSDR-GL-2026",
+  "spaceflight_tissue": "Human_T_Cell_ISS_Flown",
+  "target_antigen_under_stress": "HER2",
+  "antigen_overexpression_fold_change": 4.8,
+  "mRNA_alternative_splicing_risk_index": 0.76
+}
