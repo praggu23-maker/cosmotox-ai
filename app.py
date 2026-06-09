@@ -45,7 +45,7 @@ def car_t_toxicity_system(t, y, params):
     bbb_leakage_index = 1.0 / (1.0 + np.exp(-0.025 * (Systemic_IL6 - 220.0)))
     dICANS = (Systemic_IL6 * bbb_leakage_index * 0.35) - (0.22 * ICANS_CNS)
     
-    return [dFlu_C, dFlu_P if 'dFlu_P' in locals() else 0, dCy_C, dCy_P if 'dCy_P' in locals() else 0, dIL6] if len(y) == 5 else [dFlu_C, dCy_C, dIL6, dICANS]
+    return [dFlu_C, dCy_C, dIL6, dICANS]
 
 def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, peak_icans, treatment_plan):
     buffer = io.BytesIO()
@@ -70,7 +70,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["NASA Alternative Splicing Risk Index", f"{splicing}"],
         ["Patient Genomic Risk Strata", str(genotype_summary)]
     ]
-    t1 = Table(data_inputs, colWidths=[240, 260])
+    t1 = Table(data_inputs, colWidths=[240, 280])
     t1.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0068C9')),
         ('TEXTCOLOR', (0,0), (1,0), colors.white),
@@ -88,7 +88,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    t2 = Table(data_outcomes, colWidths=[200, 150, 150])
+    t2 = Table(data_outcomes, colWidths=[200, 160, 160])
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
