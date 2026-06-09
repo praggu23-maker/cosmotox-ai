@@ -32,10 +32,10 @@ def run_euler_simulation(params):
     Systemic_IL6 = np.zeros(steps)
     ICANS_CNS = np.zeros(steps)
     
-    Flu_C[0] = 30.0 * params['bsa_m2']
-    Cy_C[0] = 500.0 * params['bsa_m2']
-    Systemic_IL6[0] = 15.0
-    ICANS_CNS[0] = 2.0
+    Flu_C = 30.0 * params['bsa_m2']
+    Cy_C = 500.0 * params['bsa_m2']
+    Systemic_IL6 = 15.0
+    ICANS_CNS = 2.0
     
     cl_flu = 9.5 * (params['crcl_ml_min'] / 100.0)
     v1_flu = params['bsa_m2'] * 20.0
@@ -85,8 +85,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["NASA Alternative Splicing Risk Index", f"{splicing}"],
         ["Patient Genomic Risk Strata", str(genotype_summary)]
     ]
-    # Fixed colWidths values explicitly to handle 2 columns layout bounds
-    t1 = Table(data_inputs, colWidths=[250, 250])
+    t1 = Table(data_inputs, colWidths=[220, 310])
     t1.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0068C9')),
         ('TEXTCOLOR', (0,0), (1,0), colors.white),
@@ -104,8 +103,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    # Fixed colWidths values explicitly to handle 3 columns layout bounds
-    t2 = Table(data_outcomes, colWidths=[200, 150, 150])
+    t2 = Table(data_outcomes, colWidths=[190, 160, 180])
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
@@ -207,3 +205,6 @@ with col_left:
                 st.markdown(msg["content"])
                 
     if user_prompt := st.chat_input("Ask how to modify trial schemas or treat specific mutations..."):
+        st.session_state.messages.append({"role": "user", "content": user_prompt})
+        with chat_box:
+            with st.chat_message("user"):
