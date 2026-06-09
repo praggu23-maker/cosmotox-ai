@@ -197,56 +197,348 @@ peak_icans = float(np.max(icans_trajectory))
 
 st.write("---")
 
-# Flattened tracking metrics list view to prevent line spaces indentation errors
-st.header("🔮 Predictive Pre-Trial Analytics")
-if peak_crs > 300:
-    st.error(f"💥 **Max Systemic CRS Peak:** {peak_crs:.1f} pg/mL ➔ ⚠️ HIGH CRS RISK DETECTED")
-else:
-    st.success(f"💥 **Max Systemic CRS Peak:** {peak_crs:.1f} pg/mL ➔ ✅ Low Profile")
+# =====================================================================
+# SECTION 1: PREDICTIVE ANALYTICS OUTCOMES
+# =====================================================================
+st.header("🔮 Predictive Pre-Trial Analytics Outcomes")
 
-if peak_icans > 80:
-    st.error(f"🧠 **Max ICANS Neurotoxicity Index:** {peak_icans:.1f} pts ➔ 🚨 SEVERE NEURO-RISK FLAGGED")
-else:
-    st.success(f"🧠 **Max ICANS Neurotoxicity Index:** {peak_icans:.1f} pts ➔ ✅ Stable Profile")
+col1, col2 = st.columns(2)
 
-# Add PDF download button (this was missing and would cause issues if called without treatment_plan)
-if st.button("📄 Generate PDF Report"):
-    # Define treatment plan based on simulation results
-    treatment_plan = []
-    
+with col1:
     if peak_crs > 300:
-        treatment_plan.append({
-            'therapy': 'Tocilizumab (Anti-IL6R)',
-            'desc': 'Administer 8mg/kg IV over 60 minutes for severe CRS management'
-        })
-        treatment_plan.append({
-            'therapy': 'Corticosteroids',
-            'desc': 'Methylprednisolone 2mg/kg/day divided q6h for 3 days'
-        })
+        st.metric("Max Systemic CRS Peak", f"{peak_crs:.1f} pg/mL", delta="HIGH RISK", delta_color="inverse")
+        st.error("⚠️ **CRITICAL CRS RISK DETECTED**")
+        st.markdown("""
+        **Clinical Intervention Required:**
+        - Tocilizumab (8mg/kg) STAT
+        - Consider ICU monitoring
+        - Initiate cytokine panel q4h
+        """)
     else:
-        treatment_plan.append({
-            'therapy': 'Supportive Care',
-            'desc': 'Monitor vitals, hydration, and antipyretics as needed'
-        })
-    
+        st.metric("Max Systemic CRS Peak", f"{peak_crs:.1f} pg/mL", delta="Low Risk", delta_color="normal")
+        st.success("✅ **Low CRS Profile**")
+        st.markdown("""
+        **Standard Monitoring:**
+        - Routine vital signs q8h
+        - Continue standard protocol
+        """)
+
+with col2:
     if peak_icans > 80:
-        treatment_plan.append({
-            'therapy': 'Anakinra (IL-1Ra)',
-            'desc': '100mg SC daily for 7 days for neurotoxicity management'
-        })
-        treatment_plan.append({
-            'therapy': 'Neurological Monitoring',
-            'desc': 'Daily ICE assessment and EEG monitoring'
-        })
+        st.metric("Max ICANS Neurotoxicity", f"{peak_icans:.1f} pts", delta="SEVERE RISK", delta_color="inverse")
+        st.error("🚨 **SEVERE NEUROTOXICITY FLAGGED**")
+        st.markdown("""
+        **Neurological Protocol:**
+        - Anakinra 100mg SC daily
+        - Daily ICE assessments
+        - EEG monitoring recommended
+        """)
+    else:
+        st.metric("Max ICANS Neurotoxicity", f"{peak_icans:.1f} pts", delta="Stable", delta_color="normal")
+        st.success("✅ **Stable Neurological Profile**")
+        st.markdown("""
+        **Standard Monitoring:**
+        - Daily neurological checks
+        - Standard safety protocol
+        """)
+
+st.write("---")
+
+# =====================================================================
+# SECTION 2: PLOTLY TIME-COURSE GRAPHICS CURVES
+# =====================================================================
+st.header("📈 Time-Course Kinetics & Trajectory Analysis")
+
+# Create tabs for different visualization options
+tab1, tab2 = st.tabs(["📊 CRS & ICANS Dynamics", "📉 Logarithmic Scale View"])
+
+with tab1:
+    # Create figure with secondary y-axis
+    fig = go.Figure()
     
-    pdf_buffer = generate_pdf_report(
-        target_antigen, calculated_crcl, nasa_fc, nasa_splicing, 
-        genotype_summary_text, peak_crs, peak_icans, treatment_plan
+    # Add CRS trajectory trace
+    fig.add_trace(go.Scatter(
+        x=time_days,
+        y=crs_trajectory,
+        name="Systemic CRS (IL-6)",
+        line=dict(color='#FF4B4B', width=3),
+        fill='tozeroy',
+        fillcolor='rgba(255, 75, 75, 0.2)',
+        mode='lines'
+    ))
+    
+    # Add ICANS trajectory trace
+    fig.add_trace(go.Scatter(
+        x=time_days,
+        y=icans_trajectory,
+        name="Neurotoxicity (ICANS)",
+        line=dict(color='#0068C9', width=3, dash='dash'),
+        mode='lines'
+    ))
+    
+    # Add threshold lines
+    fig.add_hline(y=300, line_dash="dot", line_color="red", 
+                  annotation_text="CRS High Risk Threshold", annotation_position="top right")
+    fig.add_hline(y=80, line_dash="dot", line_color="orange", 
+                  annotation_text="ICANS Severe Threshold", annotation_position="bottom right")
+    
+    # Update layout
+    fig.update_layout(
+        title="Clinical Trajectories Over Time",
+        xaxis_title="Time (Hours)",
+        yaxis_title="Concentration / Index Value",
+        hovermode='x unified',
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255, 255, 255, 0.8)'
+        ),
+        template='plotly_white',
+        height=500
     )
     
-    st.download_button(
-        label="💾 Download Safety Report (PDF)",
-        data=pdf_buffer,
-        file_name="cosmotox_ai_safety_report.pdf",
-        mime="application/pdf"
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Add summary statistics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Peak CRS", f"{peak_crs:.0f} pg/mL", 
+                  delta=f"at {time_days[np.argmax(crs_trajectory)]:.0f}h")
+    with col2:
+        st.metric("Peak ICANS", f"{peak_icans:.0f} pts",
+                  delta=f"at {time_days[np.argmax(icans_trajectory)]:.0f}h")
+    with col3:
+        time_to_crs = time_days[np.where(crs_trajectory > 300)[0]]
+        if len(time_to_crs) > 0:
+            st.metric("Time to CRS Risk", f"{time_to_crs[0]:.0f}h", delta="⚠️")
+        else:
+            st.metric("Time to CRS Risk", "No Risk", delta="✅")
+    with col4:
+        time_to_icans = time_days[np.where(icans_trajectory > 80)[0]]
+        if len(time_to_icans) > 0:
+            st.metric("Time to ICANS Risk", f"{time_to_icans[0]:.0f}h", delta="🚨")
+        else:
+            st.metric("Time to ICANS Risk", "No Risk", delta="✅")
+
+with tab2:
+    # Logarithmic scale view for better visualization of dynamics
+    fig_log = go.Figure()
+    
+    # Add traces with log scaling option
+    fig_log.add_trace(go.Scatter(
+        x=time_days,
+        y=crs_trajectory + 1,  # Add 1 to avoid log(0)
+        name="Systemic CRS (IL-6) - Log Scale",
+        line=dict(color='#FF4B4B', width=3),
+        mode='lines'
+    ))
+    
+    fig_log.add_trace(go.Scatter(
+        x=time_days,
+        y=icans_trajectory + 1,
+        name="Neurotoxicity (ICANS) - Log Scale",
+        line=dict(color='#0068C9', width=3, dash='dash'),
+        mode='lines'
+    ))
+    
+    fig_log.update_layout(
+        title="Clinical Trajectories (Logarithmic Scale)",
+        xaxis_title="Time (Hours)",
+        yaxis_title="Log(Value + 1)",
+        yaxis_type="log",
+        hovermode='x unified',
+        template='plotly_white',
+        height=500
     )
+    
+    st.plotly_chart(fig_log, use_container_width=True)
+    
+    st.info("💡 **Insight:** Logarithmic scale reveals early-phase dynamics and exponential growth patterns in cytokine response.")
+
+st.write("---")
+
+# =====================================================================
+# SECTION 3: TAILORED PHARMACOTHERAPY & MITIGATION PLAN
+# =====================================================================
+st.header("💊 Tailored Pharmacotherapy & Mitigation Plan")
+
+# Generate personalized treatment plan based on simulation results
+treatment_plan = []
+risk_level = "LOW"
+recommendations = []
+
+if peak_crs > 300 and peak_icans > 80:
+    risk_level = "CRITICAL"
+    st.error("🚨 **CRITICAL RISK PROFILE - Immediate Intervention Required**")
+    
+    treatment_plan = [
+        {'therapy': 'Tocilizumab (Anti-IL-6R)', 
+         'desc': '8mg/kg IV over 60 minutes, repeat in 8 hours if no improvement', 
+         'priority': 'HIGH', 'timing': 'Immediate'},
+        {'therapy': 'Anakinra (IL-1 Receptor Antagonist)', 
+         'desc': '100mg SC loading dose, then 100mg daily for 7 days', 
+         'priority': 'HIGH', 'timing': 'Within 2 hours'},
+        {'therapy': 'High-dose Corticosteroids', 
+         'desc': 'Methylprednisolone 1g IV daily for 3 days, then taper', 
+         'priority': 'MEDIUM', 'timing': 'Within 4 hours'},
+        {'therapy': 'Supportive Care', 
+         'desc': 'ICU admission, vasopressor support if needed, continuous monitoring', 
+         'priority': 'HIGH', 'timing': 'Immediate'}
+    ]
+    
+    recommendations = [
+        "Transfer to ICU for continuous monitoring",
+        "Initiate hourly neurological assessments (ICE score)",
+        "Obtain baseline EEG within 2 hours",
+        "Daily cytokine panel (IL-6, IL-1, TNF-α)",
+        "Prepare for potential mechanical ventilation"
+    ]
+    
+elif peak_crs > 300:
+    risk_level = "HIGH"
+    st.warning("⚠️ **HIGH CRS RISK - Aggressive Management Recommended**")
+    
+    treatment_plan = [
+        {'therapy': 'Tocilizumab (Anti-IL-6R)', 
+         'desc': '8mg/kg IV over 60 minutes', 
+         'priority': 'HIGH', 'timing': 'Within 2 hours'},
+        {'therapy': 'Corticosteroids', 
+         'desc': 'Methylprednisolone 2mg/kg/day divided q6h for 3-5 days', 
+         'priority': 'MEDIUM', 'timing': 'Within 6 hours'},
+        {'therapy': 'Supportive Care', 
+         'desc': 'IV hydration, antipyretics, vital signs monitoring q2h', 
+         'priority': 'MEDIUM', 'timing': 'Immediate'}
+    ]
+    
+    recommendations = [
+        "Monitor in step-down unit or ICU",
+        "Check inflammatory markers q8h",
+        "Neurological checks q4h",
+        "Consider tocilizumab redosing if no improvement in 8 hours"
+    ]
+    
+elif peak_icans > 80:
+    risk_level = "HIGH-NEURO"
+    st.warning("🧠 **SEVERE NEUROTOXICITY RISK - Neurological Protocol Required**")
+    
+    treatment_plan = [
+        {'therapy': 'Anakinra (IL-1 Receptor Antagonist)', 
+         'desc': '100mg SC daily for 7-14 days', 
+         'priority': 'HIGH', 'timing': 'Within 2 hours'},
+        {'therapy': 'Dexamethasone', 
+         'desc': '10mg IV q6h for 48 hours, then taper', 
+         'priority': 'HIGH', 'timing': 'Within 2 hours'},
+        {'therapy': 'Supportive Care', 
+         'desc': 'Seizure prophylaxis, EEG monitoring', 
+         'priority': 'MEDIUM', 'timing': 'Within 6 hours'}
+    ]
+    
+    recommendations = [
+        "Daily ICE assessment and neurological exams",
+        "Continuous EEG monitoring for 24-48 hours",
+        "Avoid sedating medications if possible",
+        "Consider MRI brain if neurological deficits persist"
+    ]
+    
+else:
+    risk_level = "LOW"
+    st.success("✅ **LOW RISK PROFILE - Standard Prophylaxis Protocol**")
+    
+    treatment_plan = [
+        {'therapy': 'Prophylactic Corticosteroids', 
+         'desc': 'Hydrocortisone 100mg IV before CAR-T infusion', 
+         'priority': 'LOW', 'timing': 'Pre-treatment'},
+        {'therapy': 'Supportive Care', 
+         'desc': 'Standard monitoring: vital signs q4h, neurological checks daily', 
+         'priority': 'LOW', 'timing': 'Throughout treatment'},
+        {'therapy': 'Patient Education', 
+         'desc': 'Educate patient/family on early warning signs of CRS/ICANS', 
+         'priority': 'LOW', 'timing': 'Prior to discharge'}
+    ]
+    
+    recommendations = [
+        "Outpatient monitoring with daily phone follow-up",
+        "Provide emergency contact information",
+        "Schedule follow-up visit in 7 days",
+        "Baseline and weekly cytokine panel monitoring"
+    ]
+
+st.write("---")
+
+# Display treatment plan in organized format
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.subheader("📋 Personalized Treatment Protocol")
+    
+    # Create treatment table
+    treatment_df = pd.DataFrame(treatment_plan)
+    st.dataframe(
+        treatment_df[['therapy', 'desc', 'priority', 'timing']],
+        hide_index=True,
+        use_container_width=True
+    )
+
+with col2:
+    st.subheader("🎯 Key Recommendations")
+    for rec in recommendations:
+        st.markdown(f"- {rec}")
+    
+    # Display risk summary
+    st.markdown("---")
+    st.subheader("📊 Risk Summary")
+    risk_color = {
+        "LOW": "🟢",
+        "HIGH": "🟡",
+        "HIGH-NEURO": "🟠",
+        "CRITICAL": "🔴"
+    }
+    st.markdown(f"**Overall Risk Level:** {risk_color.get(risk_level, '⚪')} **{risk_level}**")
+    
+    # Additional metrics
+    st.markdown(f"**CRS Peak:** {peak_crs:.1f} pg/mL")
+    st.markdown(f"**ICANS Peak:** {peak_icans:.1f} pts")
+
+st.write("---")
+
+# =====================================================================
+# PDF REPORT GENERATION & DOWNLOAD
+# =====================================================================
+st.subheader("📄 Generate Comprehensive Safety Report")
+
+# Prepare treatment plan for PDF (simplified version)
+pdf_treatment_plan = [
+    {'therapy': t['therapy'], 'desc': t['desc']} 
+    for t in treatment_plan
+]
+
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    if st.button("📑 Generate & Download PDF Safety Report", use_container_width=True, type="primary"):
+        with st.spinner("Generating comprehensive safety report..."):
+            pdf_buffer = generate_pdf_report(
+                target_antigen, 
+                calculated_crcl, 
+                nasa_fc, 
+                nasa_splicing, 
+                genotype_summary_text, 
+                peak_crs, 
+                peak_icans, 
+                pdf_treatment_plan
+            )
+            
+            st.success("✅ Report generated successfully!")
+            
+            st.download_button(
+                label="💾 Download PDF Report",
+                data=pdf_buffer,
+                file_name=f"cosmotox_ai_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+st.markdown("---")
+st.caption("© 2024 CosmoTox-AI | Powered by NASA Bioscience & Quantitative Systems Pharmacology")
