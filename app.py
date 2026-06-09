@@ -23,24 +23,20 @@ def run_euler_simulation(params):
     Bypasses Scipy completely using an explicit Euler numerical integration loop.
     Ensures 100% stability across all experimental Python server environments.
     """
-    # Time steps setup: 10 days tracked hourly (240 steps)
     dt = 1.0
     steps = 241
     t_eval = np.linspace(0, 240, steps)
     
-    # Initialize state tracking vectors
     Flu_C = np.zeros(steps)
     Cy_C = np.zeros(steps)
     Systemic_IL6 = np.zeros(steps)
     ICANS_CNS = np.zeros(steps)
     
-    # Initial boundary states assignment
     Flu_C[0] = 30.0 * params['bsa_m2']
     Cy_C[0] = 500.0 * params['bsa_m2']
     Systemic_IL6[0] = 15.0
     ICANS_CNS[0] = 2.0
     
-    # Scale variables dynamically based on patient profile configurations
     cl_flu = 9.5 * (params['crcl_ml_min'] / 100.0)
     v1_flu = params['bsa_m2'] * 20.0
     cl_cy = 11.0 * params.get('cyp_modifier', 1.0)
@@ -49,20 +45,16 @@ def run_euler_simulation(params):
     nasa_stress_impact = params['nasa_fc'] * params['nasa_splicing']
     patient_genomic_multiplier = params['patient_genomic_modifier']
     
-    # Numerical Euler integration loop
     for i in range(steps - 1):
         dFlu = -(cl_flu / v1_flu) * Flu_C[i]
         dCy = -(cl_cy / v1_cy) * Cy_C[i]
         
-        # CRS Cytokine Equation
         trigger_force = nasa_stress_impact * patient_genomic_multiplier
         dIL6 = (trigger_force * 50.0) - (0.18 * Systemic_IL6[i])
         
-        # ICANS Brain Barrier Sigmoidal Leaking Equation
         bbb_leakage = 1.0 / (1.0 + np.exp(-0.025 * (Systemic_IL6[i] - 220.0)))
         dICANS = (Systemic_IL6[i] * bbb_leakage * 0.35) - (0.22 * ICANS_CNS[i])
         
-        # Step values forward
         Flu_C[i+1] = max(0, Flu_C[i] + dFlu * dt)
         Cy_C[i+1] = max(0, Cy_C[i] + dCy * dt)
         Systemic_IL6[i+1] = max(0, Systemic_IL6[i] + dIL6 * dt)
@@ -93,7 +85,8 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["NASA Alternative Splicing Risk Index", f"{splicing}"],
         ["Patient Genomic Risk Strata", str(genotype_summary)]
     ]
-    t1 = Table(data_inputs, colWidths=)
+    # Fixed colWidths values explicitly to handle 2 columns layout bounds
+    t1 = Table(data_inputs, colWidths=[250, 250])
     t1.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0068C9')),
         ('TEXTCOLOR', (0,0), (1,0), colors.white),
@@ -111,7 +104,8 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    t2 = Table(data_outcomes, colWidths=)
+    # Fixed colWidths values explicitly to handle 3 columns layout bounds
+    t2 = Table(data_outcomes, colWidths=[200, 150, 150])
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
@@ -209,3 +203,7 @@ with col_left:
     chat_box = st.container(height=350)
     with chat_box:
         for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+                
+    if user_prompt := st.chat_input("Ask how to modify trial schemas or treat specific mutations..."):
