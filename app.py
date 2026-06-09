@@ -27,7 +27,7 @@ def run_euler_simulation(params):
     Systemic_IL6 = np.zeros(steps)
     ICANS_CNS = np.zeros(steps)
     
-    # CORRECT INITIALIZATION: Assigning starting values to index 0 of the arrays
+    # Correct array state sequence definitions
     Flu_C[0] = 30.0 * params['bsa_m2']
     Cy_C[0] = 500.0 * params['bsa_m2']
     Systemic_IL6[0] = 15.0
@@ -99,7 +99,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    t2 = Table(data_outcomes, colWidths=[180, 140, 160])
+    t2 = Table(data_outcomes, colWidths=[180, 150, 150])
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
@@ -125,6 +125,7 @@ st.sidebar.title("🛠️ Configuration Sandbox")
 st.sidebar.markdown("### 🧬 Patient Genomic Profile Input")
 genomic_source = st.sidebar.selectbox("Genomic Mode Source:", ["Standard Population Sliders", "Upload Patient Gene Profile / SNPs"])
 
+# Initialize variables with default values
 patient_genomic_modifier = 1.5
 cyp_modifier = 1.0
 genotype_summary_text = "Standard Population Metrics Applied"
@@ -163,7 +164,6 @@ st.title("🚀 CosmoTox-AI Clinical Simulator")
 st.markdown("Predict off-target toxicities and optimize tailored treatment protocols by translating **NASA Bioscience extreme stress markers** through **personalized patient-specific genomic variant sheets**.")
 st.write("---")
 
-# 📥 Section 1: Ingestion File Layer
 st.header("📥 Data Ingestion Layer")
 uploaded_file = st.file_uploader("Upload Raw NASA Bioscience File (JSON Format):", type=["json"])
 nasa_fc = 1.0
@@ -182,7 +182,6 @@ if uploaded_file is not None:
 
 st.write("---")
 
-# 🧮 Section 2: Run Variable Summary Info
 st.header("🧪 QSP Simulation Metrics Summary")
 st.info(f"Active Computational Boundary Run Parameters:\n- NASA Target construct: {target_antigen}\n- Calculated Clearance: {calculated_crcl:.1f} mL/min\n- Patient Genomic Profile Weight: {patient_genomic_modifier}x")
 
@@ -198,9 +197,56 @@ peak_icans = float(np.max(icans_trajectory))
 
 st.write("---")
 
-# 🔮 Section 3: Predictive Numerical Metrics
+# Flattened tracking metrics list view to prevent line spaces indentation errors
 st.header("🔮 Predictive Pre-Trial Analytics")
-col_t1, col_t2 = st.columns(2)
-with col_t1:
-    st.metric("Max Systemic CRS", f"{peak_crs:.1f} pg/mL", delta="⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile", delta_color="inverse" if peak_crs > 300 else "normal")
-with col_t2:
+if peak_crs > 300:
+    st.error(f"💥 **Max Systemic CRS Peak:** {peak_crs:.1f} pg/mL ➔ ⚠️ HIGH CRS RISK DETECTED")
+else:
+    st.success(f"💥 **Max Systemic CRS Peak:** {peak_crs:.1f} pg/mL ➔ ✅ Low Profile")
+
+if peak_icans > 80:
+    st.error(f"🧠 **Max ICANS Neurotoxicity Index:** {peak_icans:.1f} pts ➔ 🚨 SEVERE NEURO-RISK FLAGGED")
+else:
+    st.success(f"🧠 **Max ICANS Neurotoxicity Index:** {peak_icans:.1f} pts ➔ ✅ Stable Profile")
+
+# Add PDF download button (this was missing and would cause issues if called without treatment_plan)
+if st.button("📄 Generate PDF Report"):
+    # Define treatment plan based on simulation results
+    treatment_plan = []
+    
+    if peak_crs > 300:
+        treatment_plan.append({
+            'therapy': 'Tocilizumab (Anti-IL6R)',
+            'desc': 'Administer 8mg/kg IV over 60 minutes for severe CRS management'
+        })
+        treatment_plan.append({
+            'therapy': 'Corticosteroids',
+            'desc': 'Methylprednisolone 2mg/kg/day divided q6h for 3 days'
+        })
+    else:
+        treatment_plan.append({
+            'therapy': 'Supportive Care',
+            'desc': 'Monitor vitals, hydration, and antipyretics as needed'
+        })
+    
+    if peak_icans > 80:
+        treatment_plan.append({
+            'therapy': 'Anakinra (IL-1Ra)',
+            'desc': '100mg SC daily for 7 days for neurotoxicity management'
+        })
+        treatment_plan.append({
+            'therapy': 'Neurological Monitoring',
+            'desc': 'Daily ICE assessment and EEG monitoring'
+        })
+    
+    pdf_buffer = generate_pdf_report(
+        target_antigen, calculated_crcl, nasa_fc, nasa_splicing, 
+        genotype_summary_text, peak_crs, peak_icans, treatment_plan
+    )
+    
+    st.download_button(
+        label="💾 Download Safety Report (PDF)",
+        data=pdf_buffer,
+        file_name="cosmotox_ai_safety_report.pdf",
+        mime="application/pdf"
+    )
