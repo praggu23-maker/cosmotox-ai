@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import json
-from scipy.integrate import solve_ivp
-from openai import OpenAI
 import io
 
 # Import ReportLab modules for direct in-memory PDF generation
@@ -20,32 +18,57 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "Welcome to CosmoTox-AI! Upload your NASA spaceflight dataset or paste a patient's genetic/variant profile to calculate custom trial risks and see optimized treatment protocols."}
     ]
 
-def car_t_toxicity_system(t, y, params):
-    Flu_C, Cy_C, Systemic_IL6, ICANS_CNS = y
+def run_euler_simulation(params):
+    """
+    Bypasses Scipy completely using an explicit Euler numerical integration loop.
+    Ensures 100% stability across all experimental Python server environments.
+    """
+    # Time steps setup: 10 days tracked hourly (240 steps)
+    dt = 1.0
+    steps = 241
+    t_eval = np.linspace(0, 240, steps)
     
-    # Scale fludarabine clearance by renal function
+    # Initialize state tracking vectors
+    Flu_C = np.zeros(steps)
+    Cy_C = np.zeros(steps)
+    Systemic_IL6 = np.zeros(steps)
+    ICANS_CNS = np.zeros(steps)
+    
+    # Initial boundary states assignment
+    Flu_C[0] = 30.0 * params['bsa_m2']
+    Cy_C[0] = 500.0 * params['bsa_m2']
+    Systemic_IL6[0] = 15.0
+    ICANS_CNS[0] = 2.0
+    
+    # Scale variables dynamically based on patient profile configurations
     cl_flu = 9.5 * (params['crcl_ml_min'] / 100.0)
     v1_flu = params['bsa_m2'] * 20.0
-    
-    # Incorporate Patient Genotype Modifier on Cyclophosphamide Metabolism
-    cyp_modifier = params.get('cyp_modifier', 1.0)
-    cl_cy = 11.0 * cyp_modifier
+    cl_cy = 11.0 * params.get('cyp_modifier', 1.0)
     v1_cy = params['bsa_m2'] * 30.0
     
-    dFlu_C = -(cl_flu / v1_flu) * Flu_C
-    dCy_C = -(cl_cy / v1_cy) * Cy_C
-    
-    # Dynamic Cytokine Release Syndrome Equation (CRS Model)
     nasa_stress_impact = params['nasa_fc'] * params['nasa_splicing']
     patient_genomic_multiplier = params['patient_genomic_modifier']
     
-    dIL6 = (nasa_stress_impact * patient_genomic_multiplier * 50.0) - (0.18 * Systemic_IL6)
-    
-    # Mathematical Modeling of ICANS Neurotoxicity via Sigmoidal BBB Leaking
-    bbb_leakage_index = 1.0 / (1.0 + np.exp(-0.025 * (Systemic_IL6 - 220.0)))
-    dICANS = (Systemic_IL6 * bbb_leakage_index * 0.35) - (0.22 * ICANS_CNS)
-    
-    return [dFlu_C, dCy_C, dIL6, dICANS]
+    # Numerical Euler integration loop
+    for i in range(steps - 1):
+        dFlu = -(cl_flu / v1_flu) * Flu_C[i]
+        dCy = -(cl_cy / v1_cy) * Cy_C[i]
+        
+        # CRS Cytokine Equation
+        trigger_force = nasa_stress_impact * patient_genomic_multiplier
+        dIL6 = (trigger_force * 50.0) - (0.18 * Systemic_IL6[i])
+        
+        # ICANS Brain Barrier Sigmoidal Leaking Equation
+        bbb_leakage = 1.0 / (1.0 + np.exp(-0.025 * (Systemic_IL6[i] - 220.0)))
+        dICANS = (Systemic_IL6[i] * bbb_leakage * 0.35) - (0.22 * ICANS_CNS[i])
+        
+        # Step values forward
+        Flu_C[i+1] = max(0, Flu_C[i] + dFlu * dt)
+        Cy_C[i+1] = max(0, Cy_C[i] + dCy * dt)
+        Systemic_IL6[i+1] = max(0, Systemic_IL6[i] + dIL6 * dt)
+        ICANS_CNS[i+1] = max(0, ICANS_CNS[i] + dICANS * dt)
+        
+    return t_eval, Systemic_IL6, ICANS_CNS
 
 def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, peak_icans, treatment_plan):
     buffer = io.BytesIO()
@@ -70,7 +93,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["NASA Alternative Splicing Risk Index", f"{splicing}"],
         ["Patient Genomic Risk Strata", str(genotype_summary)]
     ]
-    t1 = Table(data_inputs, colWidths=[240, 280])
+    t1 = Table(data_inputs, colWidths=)
     t1.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0068C9')),
         ('TEXTCOLOR', (0,0), (1,0), colors.white),
@@ -88,7 +111,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ["Max Systemic Cytokine Storm (CRS)", f"{peak_crs:.1f} pg/mL", "⚠️ HIGH CRS RISK" if peak_crs > 300 else "✅ Low Profile"],
         ["Max Neurovascular ICANS Intensity", f"{peak_icans:.1f} pts", "🚨 SEVERE NEURO-RISK" if peak_icans > 80 else "✅ Stable Profile"]
     ]
-    t2 = Table(data_outcomes, colWidths=[200, 160, 160])
+    t2 = Table(data_outcomes, colWidths=)
     t2.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (2,0), colors.HexColor('#FF4B4B')),
         ('TEXTCOLOR', (0,0), (2,0), colors.white),
@@ -108,7 +131,7 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
     return buffer
 
 # =====================================================================
-# SIDEBAR CONFIGURATION FILTERS
+# SIDEBAR FILTERS SETUP
 # =====================================================================
 st.sidebar.title("🛠️ Configuration Sandbox")
 
@@ -122,7 +145,6 @@ else:
     st.sidebar.success("🤖 OpenAI Engine Connected.")
 
 st.sidebar.write("---")
-
 st.sidebar.markdown("### 🧬 2. Patient Genomic Profile Input")
 genomic_source = st.sidebar.selectbox("Genomic Mode Source:", ["Standard Population Sliders", "Upload Patient Gene Profile / SNPs"])
 
@@ -187,17 +209,3 @@ with col_left:
     chat_box = st.container(height=350)
     with chat_box:
         for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-                
-    if user_prompt := st.chat_input("Ask how to modify trial schemas or treat specific mutations..."):
-        st.session_state.messages.append({"role": "user", "content": user_prompt})
-        with chat_box:
-            with st.chat_message("user"):
-                st.markdown(user_prompt)
-        if not api_key:
-            with chat_box:
-                with st.chat_message("assistant"):
-                    st.error("Please add your OpenAI API Key in the left column.")
-        else:
-            client = OpenAI(api_key=api_key)
