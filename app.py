@@ -29,7 +29,8 @@ def car_t_toxicity_system(t, y, params):
 st.sidebar.title("🛠️ Configuration Sandbox")
 st.sidebar.markdown("### 1. Artificial Intelligence Core")
 api_key_input = st.sidebar.text_input("Enter OpenAI API Key:", type="password")
-api_key = api_key_input if api_key_input else ""
+api_key = st.secrets.get("OPENAI_API_KEY", "") if not api_key_input else api_key_input
+
 
 if not api_key:
     st.sidebar.warning("⚠️ Chat features require an OpenAI API Key.")
