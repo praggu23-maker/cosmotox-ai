@@ -17,7 +17,7 @@ st.set_page_config(page_title="CosmoTox-AI Dashboard", page_icon="🚀", layout=
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Welcome to CosmoTox-AI! Upload your NASA spaceflight dataset or paste a patient's genetic/variant profile to calculate custom trial risks."}
+        {"role": "assistant", "content": "Welcome to CosmoTox-AI! Upload your NASA spaceflight dataset or paste a patient's genetic/variant profile to calculate custom trial risks and see optimized treatment protocols."}
     ]
 
 def car_t_toxicity_system(t, y, params):
@@ -27,7 +27,7 @@ def car_t_toxicity_system(t, y, params):
     cl_flu = 9.5 * (params['crcl_ml_min'] / 100.0)
     v1_flu = params['bsa_m2'] * 20.0
     
-    # Incorporate Patient Genotype Modifier on Cyclophosphamide Metabolism (e.g., CYP2B6/CYP2C19 variants)
+    # Incorporate Patient Genotype Modifier on Cyclophosphamide Metabolism
     cyp_modifier = params.get('cyp_modifier', 1.0)
     cl_cy = 11.0 * cyp_modifier
     v1_cy = params['bsa_m2'] * 30.0
@@ -36,7 +36,6 @@ def car_t_toxicity_system(t, y, params):
     dCy_C = -(cl_cy / v1_cy) * Cy_C
     
     # Dynamic Cytokine Release Syndrome Equation (CRS Model)
-    # Scaled by NASA's cellular stress metric multiplied by the patient's exact genomic variant weight
     nasa_stress_impact = params['nasa_fc'] * params['nasa_splicing']
     patient_genomic_multiplier = params['patient_genomic_modifier']
     
@@ -48,17 +47,17 @@ def car_t_toxicity_system(t, y, params):
     
     return [dFlu_C, dCy_C, dIL6, dICANS]
 
-def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, peak_icans):
+def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, peak_icans, treatment_plan):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=22, textColor=colors.HexColor('#0068C9'), spaceAfter=15)
-    section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#FF4B4B'), spaceBefore=12, spaceAfter=8)
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#0068C9'), spaceAfter=15)
+    section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#FF4B4B'), spaceBefore=12, spaceAfter=8)
     body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=6)
     
-    story.append(Paragraph("CosmoTox-AI: Patient-Specific Pre-Clinical Risk Report", title_style))
+    story.append(Paragraph("CosmoTox-AI: Precision Treatment & Safety Report", title_style))
     story.append(Paragraph("An Astropharmacogenomics & Quantitative Systems Pharmacology Analytics Output", body_style))
     story.append(Spacer(1, 15))
     
@@ -98,14 +97,11 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey)
     ]))
     story.append(t2)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 15))
     
-    story.append(Paragraph("3. Automated Clinical Trial Mitigation Blueprint", section_style))
-    if peak_crs > 300 or peak_icans > 80:
-        verdict = f"CRITICAL ACTION REQUIRED: High risk profile flagged for antigen target '{target}'. Based on the patient's individual genomic variant risk profile, mandate prophylactic IL-6 receptor antagonists within the first 12 hours of cellular infusion, and establish a strict exclusion filter for patients with a baseline CrCl below 50 mL/min."
-    else:
-        verdict = "ACCEPTABLE TOXICITY SCHEMAS: Acceptable clinical toxicology profile model. Standard inpatient observation monitoring is appropriate for this design framework."
-    story.append(Paragraph(verdict, body_style))
+    story.append(Paragraph("3. Personalized Pharmacotherapy & Mitigation Protocol", section_style))
+    for t_option in treatment_plan:
+        story.append(Paragraph(f"<b>• {t_option['therapy']}:</b> {t_option['desc']}", body_style))
     
     doc.build(story)
     buffer.seek(0)
@@ -127,26 +123,27 @@ else:
 
 st.sidebar.write("---")
 
-# NEW BLOCK: Patient-Specific Personal Gene Profile Filters
 st.sidebar.markdown("### 🧬 2. Patient Genomic Profile Input")
 genomic_source = st.sidebar.selectbox("Genomic Mode Source:", ["Standard Population Sliders", "Upload Patient Gene Profile / SNPs"])
 
 patient_genomic_modifier = 1.5
 cyp_modifier = 1.0
 genotype_summary_text = "Standard Population Metrics Applied"
+detected_mutations = []
 
 if genomic_source == "Upload Patient Gene Profile / SNPs":
     st.sidebar.markdown("ℹ️ *Paste or upload individual patient variants (e.g., HLA alleles, IL6 mutations, CYP SNPs).*")
-    custom_gene_text = st.sidebar.text_area("Paste Patient Variant Lines (e.g., 'IL6-rs1800795: G/G, CYP2B6*6: True'):", value="IL6-rs1800795: G/G, CYP2B6*6: Heterozygous, HLA-A*02:01")
+    custom_gene_text = st.sidebar.text_area("Paste Patient Variant Lines:", value="IL6-rs1800795: G/G, CYP2B6*6: Heterozygous, HLA-A*02:01")
     
-    # High-utility parsing logic translating genetic raw texts into active ODE math multipliers
     if "IL6-rs1800795: G/G" in custom_gene_text or "G/G" in custom_gene_text:
         patient_genomic_modifier = 2.8
+        detected_mutations.append("IL6_HYPER")
         genotype_summary_text = "IL-6 Hyper-Expression Variant Detected (G/G)"
         st.sidebar.error("🚨 Flagged: High-Expression IL-6 Polymorphism.")
     if "CYP2B6*6" in custom_gene_text or "Slow Metabolizer" in custom_gene_text.lower():
         cyp_modifier = 0.5
-        genotype_summary_text += " | CYP2B6 Poor Metabolizer (Altered Chemo Clearance)"
+        detected_mutations.append("CYP_SLOW")
+        genotype_summary_text += " | CYP2B6 Poor Metabolizer"
         st.sidebar.warning("⚠️ Flagged: Decreased Cyclophosphamide Clearance.")
 else:
     selected_biobank = st.sidebar.selectbox("Choose Target Population Data Bank Reference:", ["UK Biobank (N=500k)", "NIH All of Us Cohort"])
@@ -164,7 +161,7 @@ st.sidebar.markdown(f"**Computed Clearance Rate (CrCl):** `{calculated_crcl:.1f}
 # MAIN USER INTERFACE DISPLAY LAYOUT
 # =====================================================================
 st.title("🚀 CosmoTox-AI Clinical Simulator")
-st.markdown("Predict off-target toxicities by translating **NASA Bioscience extreme stress markers** through **personalized patient-specific genomic variant sheets**.")
+st.markdown("Predict off-target toxicities and optimize tailored treatment protocols by translating **NASA Bioscience extreme stress markers** through **personalized patient-specific genomic variant sheets**.")
 st.write("---")
 
 col_left, col_right = st.columns([1.0, 1.1])
@@ -193,3 +190,14 @@ with col_left:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
                 
+    if user_prompt := st.chat_input("Ask how to modify trial schemas or treat specific mutations..."):
+        st.session_state.messages.append({"role": "user", "content": user_prompt})
+        with chat_box:
+            with st.chat_message("user"):
+                st.markdown(user_prompt)
+        if not api_key:
+            with chat_box:
+                with st.chat_message("assistant"):
+                    st.error("Please add your OpenAI API Key in the left column.")
+        else:
+            client = OpenAI(api_key=api_key)
