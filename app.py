@@ -13,6 +13,88 @@ from reportlab.lib import colors
 
 st.set_page_config(page_title="CosmoTox-AI Dashboard", page_icon="🚀", layout="wide")
 
+# =====================================================================
+# DISCLAIMER FUNCTION WITH FORCED ACKNOWLEDGMENT
+# =====================================================================
+def add_disclaimers():
+    """Add prominent disclaimers throughout the app with forced acknowledgment"""
+    
+    # Initialize session state for disclaimer if not exists
+    if 'disclaimer_acknowledged' not in st.session_state:
+        st.session_state.disclaimer_acknowledged = False
+    
+    # If disclaimer not acknowledged, show full-screen acknowledgment screen
+    if not st.session_state.disclaimer_acknowledged:
+        # Clear the main area and show only the acknowledgment screen
+        st.empty()
+        
+        # Create a container for the acknowledgment screen
+        with st.container():
+            st.markdown("---")
+            st.markdown("# ⚠️ IMPORTANT: READ BEFORE USING")
+            st.markdown("---")
+            
+            # Display warning in red box
+            st.error("""
+            ## **THIS IS A RESEARCH PROTOTYPE – NOT FOR CLINICAL USE**
+            
+            ### **By using this platform, you acknowledge and agree that:**
+            
+            1. **All predictions are computational simulations only** – Not validated in clinical trials
+            2. **No clinical decisions will be made based solely on this tool** – Requires physician oversight
+            3. **This tool has not been FDA-approved or clinically validated**
+            4. **The developers assume no liability** for use or misuse of predictions
+            5. **You will use this tool only for research, education, or hypothesis generation**
+            
+            ### **This tool is NOT a substitute for:**
+            - ❌ Medical judgment or clinical decision-making
+            - ❌ Standard laboratory testing or diagnostic procedures
+            - ❌ FDA-approved treatment protocols or guidelines
+            - ❌ Professional medical advice or consultation
+            
+            ### **By proceeding, you confirm that:**
+            - ✅ You understand this is a research prototype
+            - ✅ You will not use this tool to make actual clinical decisions
+            - ✅ You accept all risks associated with using simulation-based predictions
+            """)
+            
+            st.markdown("---")
+            
+            # Create columns for buttons
+            col1, col2, col3 = st.columns([1, 2, 1])
+            
+            with col2:
+                st.markdown("### **Do you acknowledge and agree to the terms above?**")
+                
+                # Create two buttons side by side
+                btn_col1, btn_col2 = st.columns(2)
+                
+                with btn_col1:
+                    if st.button("✅ Yes, I Acknowledge & Continue", use_container_width=True, type="primary"):
+                        st.session_state.disclaimer_acknowledged = True
+                        st.rerun()
+                
+                with btn_col2:
+                    if st.button("❌ No, I Do Not Acknowledge", use_container_width=True):
+                        st.markdown("""
+                        ### You must acknowledge the disclaimer to use this application.
+                        
+                        Please refresh the page and click **"Yes, I Acknowledge & Continue"** if you agree to the terms.
+                        """)
+                        st.stop()
+            
+            st.markdown("---")
+            st.caption("© 2024 CosmoTox-AI | Research Prototype | Not for Clinical Use")
+        
+        # Stop execution until acknowledgment
+        st.stop()
+    
+    # If acknowledged, show the regular disclaimer banner at the top
+    else:
+        st.markdown("---")
+        st.info("ℹ️ **Research Use Only** – This tool provides computational predictions. Not for clinical decision-making without physician oversight.")
+        st.markdown("---")
+
 def run_euler_simulation(params):
     """
     Bypasses Scipy completely using an explicit Euler numerical integration loop.
@@ -64,9 +146,16 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
     story = []
     
     styles = getSampleStyleSheet()
+    disclaimer_style = ParagraphStyle('DisclaimerStyle', parent=styles['Normal'], fontSize=8, textColor=colors.red, alignment=1, spaceAfter=6)
     title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#0068C9'), spaceAfter=15)
     section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#FF4B4B'), spaceBefore=12, spaceAfter=8)
     body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=6)
+    
+    # Add prominent disclaimer at the top of PDF
+    story.append(Paragraph("<font color='red'><b>⚠️ RESEARCH PROTOTYPE – NOT FOR CLINICAL USE</b></font>", disclaimer_style))
+    story.append(Paragraph("This report provides computational predictions for research purposes only. Not FDA-approved or clinically validated.", disclaimer_style))
+    story.append(Paragraph("All clinical decisions require physician oversight and standard laboratory confirmation.", disclaimer_style))
+    story.append(Spacer(1, 15))
     
     story.append(Paragraph("CosmoTox-AI: Precision Treatment & Safety Report", title_style))
     story.append(Paragraph("An Astropharmacogenomics & Quantitative Systems Pharmacology Analytics Output", body_style))
@@ -114,6 +203,11 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
     for t_option in treatment_plan:
         story.append(Paragraph(f"<b>• {t_option['therapy']}:</b> {t_option['desc']}", body_style))
     
+    # Add footer disclaimer
+    story.append(Spacer(1, 30))
+    story.append(Paragraph("<hr/>", body_style))
+    story.append(Paragraph("<font size='7' color='gray'>Generated by CosmoTox-AI v1.0 (Research Edition) | Not for diagnostic or clinical decision-making | All predictions are computational simulations only</font>", body_style))
+    
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -122,6 +216,10 @@ def generate_pdf_report(target, crcl, fc, splicing, genotype_summary, peak_crs, 
 # SIDEBAR FILTERS SETUP
 # =====================================================================
 st.sidebar.title("🛠️ Configuration Sandbox")
+
+# Sidebar disclaimer
+st.sidebar.info("⚠️ **Research Use Only** - Predictions are computational simulations. Not for clinical decisions without physician oversight.")
+
 st.sidebar.markdown("### 🧬 Patient Genomic Profile Input")
 genomic_source = st.sidebar.selectbox("Genomic Mode Source:", ["Standard Population Sliders", "Upload Patient Gene Profile / SNPs"])
 
@@ -157,9 +255,21 @@ serum_creatinine = st.sidebar.number_input("Serum Creatinine (mg/dL):", 0.3, 8.0
 calculated_crcl = ((140 - age) * weight) / (72 * serum_creatinine)
 st.sidebar.markdown(f"**Computed Clearance Rate (CrCl):** `{calculated_crcl:.1f} mL/min`")
 
+# Add final sidebar disclaimer
+st.sidebar.markdown("---")
+st.sidebar.caption("📋 **This tool provides computational predictions only. Not a substitute for clinical judgment.**")
+
 # =====================================================================
 # MAIN USER INTERFACE DISPLAY LAYOUT
 # =====================================================================
+
+# Call the disclaimer function - THIS FORCES ACKNOWLEDGMENT BEFORE PROCEEDING
+add_disclaimers()
+
+# =====================================================================
+# Only the code below runs AFTER disclaimer is acknowledged
+# =====================================================================
+
 st.title("🚀 CosmoTox-AI Clinical Simulator")
 st.markdown("Predict off-target toxicities and optimize tailored treatment protocols by translating **NASA Bioscience extreme stress markers** through **personalized patient-specific genomic variant sheets**.")
 st.write("---")
@@ -508,6 +618,9 @@ st.write("---")
 # =====================================================================
 st.subheader("📄 Generate Comprehensive Safety Report")
 
+# Add acknowledgment checkbox for PDF generation
+acknowledge_pdf = st.checkbox("I acknowledge that this is a research tool and will not use it for clinical decision-making without physician oversight")
+
 # Prepare treatment plan for PDF (simplified version)
 pdf_treatment_plan = [
     {'therapy': t['therapy'], 'desc': t['desc']} 
@@ -517,7 +630,7 @@ pdf_treatment_plan = [
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
-    if st.button("📑 Generate & Download PDF Safety Report", use_container_width=True, type="primary"):
+    if st.button("📑 Generate & Download PDF Safety Report", use_container_width=True, type="primary", disabled=not acknowledge_pdf):
         with st.spinner("Generating comprehensive safety report..."):
             pdf_buffer = generate_pdf_report(
                 target_antigen, 
